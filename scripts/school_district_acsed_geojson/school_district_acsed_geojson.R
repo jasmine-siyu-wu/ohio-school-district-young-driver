@@ -11,18 +11,23 @@ library(ggplot2)
 
 
 # 1. Load ACS-ED school district population data, 2019-2023
-acs_cw <- readxl::read_xlsx("./../../docs/data/ACSED_SexAge_Crosswalk.xlsx")
-# the acsed table is pipe-delimited
-readLines("./../../docs/data/acsed_sexage_table.txt", n = 3)
-acs <- read_delim(
-  "./../../docs/data/acsed_sexage_table.txt",
-  delim = "|",
-  col_types = cols(.default = col_character()),
-  show_col_types = FALSE,
-  trim_ws = TRUE
+# acs_cw <- readxl::read_xlsx("./../../docs/data/raw_data/ACSED_SexAge_Crosswalk.xlsx")
+# # the acsed table is pipe-delimited
+# readLines("./../../docs/data/raw_data/acsed_sexage_table.txt", n = 3)
+# acs <- read_delim(
+#   "./../../docs/data/raw_data/acsed_sexage_table.txt",
+#   delim = "|",
+#   col_types = cols(.default = col_character()),
+#   show_col_types = FALSE,
+#   trim_ws = TRUE
+# )
+# glimpse(acs) #589
+
+acs <- read.csv(
+  "./../../docs/data/raw_data/ACSDT5Y2023.B01001-Data.csv"
 )
 glimpse(acs) #589
-
+acs <- acs[2:613,]
 
 # 2. Load school district boundaries
 # # 2025 Ohio school-district boundaries
@@ -57,30 +62,30 @@ names(districts)
 # Replace source column names as needed.
 acs_clean <- acs %>%
   transmute(
-    LEAID = as.character(LEAID),
-    name = `School District`,
+    GEOID = str_sub(GEO_ID, 10, 16),
+    name = NAME,
     
     # Total population
-    total_pop_est = as.numeric(CDP05_1_EST),
-    total_pop_moe = as.numeric(CDP05_1_EST),
+    total_pop_est = as.numeric(B01001_001E),
+    total_pop_moe = as.numeric(B01001_001M),
     
     # Male population
-    male_total_est = as.numeric(CDP05_2_EST),
-    male_total_moe = as.numeric(CDP05_2_EST),
+    male_total_est = as.numeric(B01001_002E),
+    male_total_moe = as.numeric(B01001_002M),
     
-    male_15_17_est = as.numeric(CDP05_6_EST),
-    male_15_17_moe = as.numeric(CDP05_6_MOE),
-    male_18_19_est = as.numeric(CDP05_7_EST),
-    male_18_19_moe = as.numeric(CDP05_7_MOE),
+    male_15_17_est = as.numeric(B01001_006E),
+    male_15_17_moe = as.numeric(B01001_006M),
+    male_18_19_est = as.numeric(B01001_007E),
+    male_18_19_moe = as.numeric(B01001_007M),
     
     # Female population
-    female_total_est = as.numeric(CDP05_8_EST),
-    female_total_moe = as.numeric(CDP05_8_EST),
+    female_total_est = as.numeric(B01001_026E),
+    female_total_moe = as.numeric(B01001_026M),
     
-    female_15_17_est = as.numeric(CDP05_12_EST),
-    female_15_17_moe = as.numeric(CDP05_12_MOE),
-    female_18_19_est = as.numeric(CDP05_13_EST),
-    female_18_19_moe = as.numeric(CDP05_13_MOE)
+    female_15_17_est = as.numeric(B01001_030E),
+    female_15_17_moe = as.numeric(B01001_030M),
+    female_18_19_est = as.numeric(B01001_031E),
+    female_18_19_moe = as.numeric(B01001_031M)
   ) %>%
   mutate(
     # Combined ages 15-17
@@ -116,8 +121,7 @@ acs_clean %>%
 
 # 4. Standardize district identifiers
 acs_ids <- acs_clean %>%
-  mutate(GEOID = str_pad(as.character(LEAID), 7, pad = "0"),
-         match_id = str_sub(GEOID, 3, 7))
+  mutate(match_id = str_sub(GEOID, 3, 7))
 district_ids <- districts %>%
   mutate(GEOID = str_pad(as.character(GEOID), 7, pad = "0"),
          match_id = str_sub(GEOID, 3, 7))
@@ -155,31 +159,8 @@ unmatched <- anti_join(
 )
 
 print(unmatched %>% select(GEOID, NAME))
-# GEOID                                             NAME
-# 1  3904896                 North Bass Local School District
-# 2  3904897                 Put-in-Bay Local School District
-# 3  3904835                    Sebring Local School District
-# 4  3905020                  Lordstown Local School District
-# 5  3904915                    Western Local School District
-# 6  3905022                   McDonald Local School District
-# 7  3905071                  Northwood Local School District
-# 8  3904868         Jefferson Township Local School District
-# 9  3904871                New Lebanon Local School District
-# 10 3904503                 Wellsville Local School District
-# 11 3906496             College Corner Local School District
-# 12 3904446                 New Boston Local School District
-# 13 3904679             Kelleys Island Local School District
-# 14 3999997                      School District Not Defined
-# 15 3904895                Middle Bass Local School District
-# 16 3905051                 Wolf Creek Local School District
-# 17 3904536 Fairport Harbor Exempted Village School District
-# 18 3904952               Southeastern Local School District
-# 19 3904670                 Ayersville Local School District
-# 20 3904554   Newcomerstown Exempted Village School District
-# 21 3910026                       Clay Local School District
-# 22 3904833                Lowellville Local School District
-# 23 3904961                      Green Local School District
-# 24 3904537      Georgetown Exempted Village School District
+# [1] GEOID NAME 
+# <0 rows> (or 0-length row.names)
 
 
 # 7. Join population data to boundaries
@@ -308,11 +289,6 @@ ggplot() +
     plot.title = element_text(face = "bold")
   )
 
-# The missing districts vary considerably in size: 
-# We should not assume that all missing records correspond to very small populations.
-# The Lake Erie islands are worth checking: 
-# Several missing districts were island districts,
-# which may have unusual population or reporting characteristics.
 
 
 ggsave(
