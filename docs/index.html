@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Ohio Young Driver Mobility & Safety Atlas</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<link rel="stylesheet" href="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.css">
+<link rel="stylesheet" href="https://unpkg.com/leaflet.polylinemeasure@3.0.0/Leaflet.PolylineMeasure.css">
+<link rel="stylesheet" href="./css/style.css">
+<style>
+*{box-sizing:border-box}body{margin:0;font:15px/1.45 system-ui,-apple-system,Segoe UI,sans-serif;color:#182b40}header{background:#172e49;color:white;padding:18px 24px}h1{margin:0;font-size:27px}header p{margin:3px 0 0;color:#e0e9f2}.shell{display:flex;height:calc(100vh - 100px);min-height:480px}.sidebar{width:310px;flex-shrink:0;overflow:auto;padding:19px;background:#fff;border-right:1px solid #dce1e7}.sidebar h2{font-size:17px;margin:0 0 13px}.sidebar h3{font-size:13px;text-transform:uppercase;letter-spacing:.06em;color:#486078;margin:21px 0 9px}.sidebar label{display:flex;gap:9px;align-items:flex-start;padding:5px 0;cursor:pointer}.sidebar input{margin-top:4px;accent-color:#2361d2}.sidebar small{color:#596d80;display:block;margin-top:5px}.sidebar .muted{color:#63748a;font-size:13px}.sidebar select{width:100%;padding:9px;border:1px solid #bcc8d6;border-radius:5px;background:#fff}.map-wrap{position:relative;flex:1;min-width:0}#map{height:100%;width:100%}.legend{background:white;padding:12px 14px;line-height:23px;box-shadow:0 1px 9px #0003;border-radius:5px;min-width:170px}.legend strong{display:block;margin-bottom:5px}.swatch{display:inline-block;width:17px;height:14px;border:1px solid #aeb9c5;vertical-align:middle;margin-right:8px}.status{position:absolute;z-index:500;top:12px;left:50%;transform:translateX(-50%);background:#fffffff0;padding:6px 12px;border-radius:5px;box-shadow:0 1px 5px #0002;max-width:70%;font-size:13px;pointer-events:none}.leaflet-control-geocoder{max-width:270px}
+
+</style>
+</head>
+<body>
+<header><h1>Ohio Young Driver Mobility & Safety Atlas</h1><p>Mapping Licensing, Driver Training, and Transportation Safety Across Ohio</p></header>
+<div class="shell">
+<aside class="sidebar">
+<h2>Explore map layers</h2>
+<h3>Background map</h3>
+<label><input type="radio" name="basemap" value="streets" checked> Streets</label>
+<!-- <label><input type="radio" name="basemap" value="light"> Light</label> -->
+<label><input type="radio" name="basemap" value="topo"> Topographic</label>
+<label><input type="radio" name="basemap" value="satellite"> Satellite imagery</label>
+<h3>Geographic overlays</h3>
+<label><input type="checkbox" id="districtToggle" checked> School district boundaries and shading</label>
+<label><input type="checkbox" id="schoolToggle" checked> Driver training schools</label>
+<small id="schoolStatus">School locations not loaded yet.</small>
+<h3>School district shading</h3>
+<select id="indicator">
+<option value="pop_15_17_est">Population ages 15-17</option>
+<option value="pop_18_19_est">Population ages 18-19</option>
+<option value="pop_15_19_est">Population ages 15-19</option>
+<option value="none">Boundaries only</option>
+</select>
+<small>Choose one variable for district colors. Other overlays remain visible.</small>
+<h3>Map tools</h3>
+<p class="muted">Use the search box on the map to find an address. Use the ruler button to measure distance. Click a district to view all available indicators.</p>
+<h3>Data notes</h3>
+<p class="muted">ACS-ED 2019-2023 estimates. Missing values are not zeros. Population estimates have sampling uncertainty. Training school markers appear when <code>data/driver_training_schools.geojson</code> is available.</p>
+<div class="download-section">
+  <h3>Download Data</h3>
+  <a href="./data/ohio_district_population.csv" download="ohio_district_population.csv" class="download-btn">Download School District Population (CSV)</a><p class="download-note">Source: ACS-ED, 2019–2023.Includes population estimates and margins of error.
+  </p>
+</div>
+</aside>
+<div class="map-wrap"><div id="map"></div><div id="status" class="status">Loading district boundaries…</div></div>
+</div>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.js"></script>
+<script src="https://unpkg.com/leaflet.polylinemeasure@3.0.0/Leaflet.PolylineMeasure.js"></script>
+<script>
+const map=L.map('map',{preferCanvas:true}).setView([40.3,-82.8],7);
+const basemaps={
+ streets:L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'&copy; OpenStreetMap contributors',maxZoom:19}),
+//  light:L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',{attribution:'&copy; OpenStreetMap &copy; CARTO',maxZoom:19}),
+ topo:L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',{attribution:'&copy; OpenTopoMap contributors',maxZoom:17}),
+ satellite:L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{attribution:'Imagery &copy; Esri and contributors',maxZoom:19})
+};
+let activeBase=basemaps.streets;activeBase.addTo(map);
+document.querySelectorAll('input[name="basemap"]').forEach(el=>el.addEventListener('change',()=>{if(!el.checked)return;map.removeLayer(activeBase);activeBase=basemaps[el.value];activeBase.addTo(map);activeBase.bringToBack();}));
+L.Control.geocoder({defaultMarkGeocode:true,placeholder:'Search address or place…',position:'topleft',collapsed:false,geocoder:L.Control.Geocoder.nominatim()}).addTo(map);
+if(L.control.polylineMeasure)L.control.polylineMeasure({position:'topleft',unit:'metres',showBearings:false,clearMeasurementsOnStop:false,showClearControl:true,showUnitControl:true}).addTo(map);
+const status=document.getElementById('status');
+const districtToggle=document.getElementById('districtToggle');
+const schoolToggle=document.getElementById('schoolToggle');
+const indicator=document.getElementById('indicator');
+const labels={pop_15_17_est:'Population ages 15-17',pop_18_19_est:'Population ages 18-19',pop_15_19_est:'Population ages 15-19',none:'School districts'};
+const colors=['#eff6ff','#bfdbfe','#93c5fd','#3b82f6','#1d4ed8'];
+let districtData=null,districtLayer=null,schoolLayer=L.layerGroup().addTo(map),breaks=[];
+const fmt=n=>Number(n).toLocaleString('en-US');
+const valid=v=>v!==null&&v!==undefined&&v!==''&&Number.isFinite(Number(v))&&Number(v)>=0;
+const escapeHtml=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+function quantile(sorted,q){const p=(sorted.length-1)*q,i=Math.floor(p),f=p-i;return sorted[i]+(sorted[Math.min(i+1,sorted.length-1)]-sorted[i])*f;}
+function updateBreaks(){const key=indicator.value;if(key==='none'){breaks=[];return;}const values=districtData.features.map(f=>f.properties?.[key]).filter(valid).map(Number).sort((a,b)=>a-b);breaks=values.length?[.2,.4,.6,.8].map(q=>quantile(values,q)):[];}
+function fillColor(value){if(!valid(value))return '#cbd0d6';const n=Number(value);let i=0;while(i<breaks.length&&n>breaks[i])i++;return colors[i];}
+function districtStyle(feature){const key=indicator.value;return {color:'#ffffff',weight:.6,opacity:1,fillOpacity:key==='none'?0:0.8,fillColor:key==='none'?'transparent':fillColor(feature.properties?.[key])};}
+function districtPopup(f){const p=f.properties||{};const rows=[['Population ages 15-17',p.pop_15_17_est],['Population ages 18-19',p.pop_18_19_est],['Population ages 15-19',p.pop_15_19_est]];let html=`<div class="popup-title">${escapeHtml(p.NAME||p.name||'School district')}</div><dl class="popup-grid">`;for(const [label,value] of rows)html+=`<dt>${label}</dt><dd>${valid(value)?fmt(value):'No data'}</dd>`;html+='</dl>';const moes=[['15-17 MOE',p.pop_15_17_moe],['18-19 MOE',p.pop_18_19_moe],['15-19 MOE',p.pop_15_19_moe]].filter(x=>valid(x[1]));if(moes.length){html+='<hr><dl class="popup-grid">';for(const [label,value] of moes)html+=`<dt>${label}</dt><dd>&plusmn;${fmt(value)}</dd>`;html+='</dl>';}html+=`<p style="color:#526273;font-size:12px">District GEOID: ${escapeHtml(p.GEOID||'Unavailable')}</p>`;return html;}
+function updateLegend(){const el=document.getElementById('mapLegend');if(el)el.remove();if(!districtToggle.checked||!districtData)return;const legend=L.control({position:'bottomright'});legend.onAdd=function(){const div=L.DomUtil.create('div','legend');div.id='mapLegend';const key=indicator.value;div.innerHTML=`<strong>${escapeHtml(labels[key])}</strong>`;if(key==='none'){div.innerHTML+='<div>Boundaries only</div>';return div;}if(!breaks.length){div.innerHTML+='<div>No numeric data</div>';return div;}const b=breaks.map(Math.round);const entries=[`≤ ${fmt(b[0])}`,...b.slice(1).map((x,i)=>`${fmt(b[i])}-${fmt(x)}`),`> ${fmt(b[3])}`];colors.forEach((c,i)=>div.innerHTML+=`<div><span class="swatch" style="background:${c}"></span>${entries[i]}</div>`);div.innerHTML+='<div><span class="swatch" style="background:#cbd0d6"></span>No data</div>';return div;};legend.addTo(map);}
+function renderDistricts(){if(!districtData)return;updateBreaks();if(districtLayer)map.removeLayer(districtLayer);districtLayer=L.geoJSON(districtData,{style:districtStyle,onEachFeature:(f,l)=>{l.bindPopup(districtPopup(f));l.on('mouseover',()=>l.setStyle({weight:2,color:'#203954'}));l.on('mouseout',()=>districtLayer.resetStyle(l));}});if(districtToggle.checked)districtLayer.addTo(map);updateLegend();const key=indicator.value;const total=districtData.features.length;const count=key==='none'?total:districtData.features.filter(f=>valid(f.properties?.[key])).length;status.textContent=key==='none'?`${fmt(total)} district geometries`:`${fmt(count)} of ${fmt(total)} districts with data`;}
+indicator.addEventListener('change',renderDistricts);
+districtToggle.addEventListener('change',()=>{if(!districtLayer)return;if(districtToggle.checked)districtLayer.addTo(map);else map.removeLayer(districtLayer);updateLegend();});
+schoolToggle.addEventListener('change',()=>{if(schoolToggle.checked)schoolLayer.addTo(map);else map.removeLayer(schoolLayer);});
+async function getGeojson(path){const response=await fetch(path);if(!response.ok)throw new Error(`${path}: HTTP ${response.status}`);const json=await response.json();if(json.type!=='FeatureCollection'||!Array.isArray(json.features))throw new Error(`${path} is not a GeoJSON FeatureCollection`);return json;}
+async function loadDistricts(){try{districtData=await getGeojson('./data/ohio_school_districts.geojson');renderDistricts();if(districtLayer.getLayers().length){const bounds=districtLayer.getBounds();if(bounds.isValid())map.fitBounds(bounds.pad(.03));}}catch(err){console.error('District load failed',err);status.textContent=`District load error: ${err.message}`;}}
+async function loadSchools(){try{const data=await getGeojson('./data/driver_training_schools.geojson');let count=0;L.geoJSON(data,{pointToLayer:(feature,latlng)=>L.circleMarker(latlng,{radius:5,fillColor:'#f59e0b',color:'#623b06',weight:1,fillOpacity:.95}),onEachFeature:(feature,layer)=>{const p=feature.properties||{};const title=p.name||p.NAME||p.school_name||'Driver training school';const address=p.address||p.ADDRESS||'';layer.bindPopup(`<strong>${escapeHtml(title)}</strong>${address?`<div>${escapeHtml(address)}</div>`:''}`);count++;}}).eachLayer(l=>schoolLayer.addLayer(l));document.getElementById('schoolStatus').textContent=`${fmt(count)} training school locations loaded.`;}catch(err){console.info('Training schools not loaded:',err.message);document.getElementById('schoolStatus').textContent='Training school GeoJSON not available yet.';}}
+loadDistricts();loadSchools();
+</script>
+</body>
+</html>
